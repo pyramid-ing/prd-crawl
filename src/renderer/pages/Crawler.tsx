@@ -32,6 +32,9 @@ const Crawler: React.FC = () => {
         </Space>
       }
     >
+      <div>
+        테스트입니다
+      </div>
       <TerminalLog />
     </Card>
   )
