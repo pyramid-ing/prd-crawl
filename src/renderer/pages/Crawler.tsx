@@ -33,7 +33,7 @@ const Crawler: React.FC = () => {
       }
     >
       <div>
-        테스트입니다7
+        테스트입니다8
       </div>
       <TerminalLog />
     </Card>
