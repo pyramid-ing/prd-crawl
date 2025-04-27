@@ -3,6 +3,7 @@ import * as path from 'path'
 import Store from 'electron-store'
 import { DomeggookCrawler } from './crawler'
 import dayjs from 'dayjs'
+import { autoUpdater } from 'electron-updater'
 
 export interface StoreSchema {
   settings: {
@@ -51,6 +52,42 @@ function createWindow() {
     const indexPath = path.resolve(app.getAppPath(), 'dist/renderer/index.html')
     mainWindow.loadFile(indexPath)
   }
+
+  // 자동 업데이트 설정
+  setAutoUpdater(mainWindow)
+
+  return mainWindow
+}
+
+// 자동 업데이트 설정
+function setAutoUpdater(win: BrowserWindow) {
+  autoUpdater.autoDownload = true;
+
+  autoUpdater.on('update-available', () => {
+    win.webContents.send('update_available');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    win.webContents.send('update_downloaded');
+    // 다운로드 완료 후 사용자에게 알림 및 재시작
+    dialog.showMessageBox(win, {
+      type: 'info',
+      title: '업데이트 완료',
+      message: '새로운 버전이 다운로드되었습니다. 지금 재시작하시겠습니까?',
+      buttons: ['지금 재시작', '나중에']
+    }).then(result => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    win.webContents.send('update_error', err == null ? "unknown" : err.message);
+  });
+
+  // 앱 실행 시 업데이트 확인
+  autoUpdater.checkForUpdatesAndNotify();
 }
 
 // IPC 핸들러 설정
@@ -114,7 +151,7 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  createWindow()
+  const win = createWindow()
   setupIpcHandlers()
 
   app.on('activate', () => {

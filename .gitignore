@@ -4,6 +4,7 @@
 /node_modules
 /temp
 /dist
+/release
 .idea
 npm-debug.log*
 yarn-debug.log*
