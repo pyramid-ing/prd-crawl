@@ -5,7 +5,7 @@ import path from 'path'
 import * as fs from 'fs'
 import crypto from 'crypto'
 import axios from 'axios'
-import {StoreSchema} from './main'
+import { StoreSchema } from './main'
 import dayjs from 'dayjs'
 
 interface CrawlResult {
@@ -14,7 +14,15 @@ interface CrawlResult {
   description: string
   category: string
   condition: string
-  shipping: string
+  shipping: {
+    method: string
+    period: string
+    base: string
+    details: string
+    jeju: string
+    island: string
+    bundle?: string
+  }
   url: string
   origin: string
   modelName: string
@@ -29,7 +37,6 @@ interface CrawlResult {
   thumbnailPath: string
   detailImagePaths: string[]
 }
-
 
 export class DomeggookCrawler {
   private browser: puppeteer.Browser | null = null
@@ -90,7 +97,7 @@ export class DomeggookCrawler {
     this.browser = await puppeteer.launch({
       headless: !!headless,
       executablePath: this.chromePath,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
   }
 
@@ -99,8 +106,8 @@ export class DomeggookCrawler {
     try {
       const response = await axios({
         method: 'GET',
-        url: url,
-        responseType: 'stream'
+        url,
+        responseType: 'stream',
       })
 
       const writer = fs.createWriteStream(savePath)
@@ -108,7 +115,7 @@ export class DomeggookCrawler {
 
       return new Promise((resolve, reject) => {
         writer.on('finish', resolve)
-        writer.on('error', (err) => {
+        writer.on('error', err => {
           fs.unlink(savePath, () => reject(err))
         })
       })
@@ -150,7 +157,7 @@ export class DomeggookCrawler {
         await element.screenshot({
           path: screenshotPath,
           type: 'jpeg',
-          quality: 80
+          quality: 80,
         })
       }
 
@@ -181,22 +188,62 @@ export class DomeggookCrawler {
         // 상품 상태 (재고수량으로 대체)
         const condition = document.querySelector('.lInfoQty .lInfoItemContent')?.textContent?.trim() || ''
 
-        // 배송 정보
-        const shipping = document.querySelector('.lDeliMethod')?.textContent?.trim() || ''
+        // 배송 정보 간단 크롤링
+        const method = document.querySelector('#lLayerDeli .lTbl tr:nth-child(1) td')?.textContent?.trim() || ''
+        const period = document.querySelector('#lLayerDeli .lTbl tr:nth-child(2) td')?.textContent?.trim() || ''
+        const base = document.querySelector('#lLayerDeli .lTbl tr:nth-child(3) td')?.textContent?.trim() || ''
+        const bundle = document.querySelector('#lLayerDeli .lTbl tr.lLast td')?.textContent?.trim() || ''
+
+        // 제주/도서산간 추가배송비 추출
+        const addDiv = document.querySelector('#lLayerDeli .lTbl tr:nth-child(3) td .lInfoDeliAdd')
+        let jeju = '',
+          island = ''
+        if (addDiv) {
+          const html = addDiv.innerHTML
+          const jejuMatch = html.match(/제주지역\s*\+<b[^>]*>([\d,]+)<\/b>원/)
+          const islandMatch = html.match(/도서산간\s*\+<b[^>]*>([\d,]+)<\/b>원/)
+          jeju = jejuMatch ? jejuMatch[1].replace(/,/g, '') : ''
+          island = islandMatch ? islandMatch[1].replace(/,/g, '') : ''
+        }
+
+        const shippingInfo = {
+          method,
+          period,
+          base,
+          details: '',
+          jeju,
+          island,
+          bundle,
+        }
 
         // 상품 상세 정보
-        const origin = document.querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(1) .lTblHalf:first-child .lTblCell:last-child')?.textContent?.trim() || ''
-        const modelName = document.querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(1) .lTblHalf:last-child .lTblCell:last-child')?.textContent?.trim() || ''
-        const manufacturer = document.querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(2) .lTblHalf:first-child .lTblCell:last-child')?.textContent?.trim() || ''
-        const packageSize = document.querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(2) .lTblHalf:last-child .lTblCell:last-child')?.textContent?.trim() || ''
+        const origin =
+          document
+            .querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(1) .lTblHalf:first-child .lTblCell:last-child')
+            ?.textContent?.trim() || ''
+        const modelName =
+          document
+            .querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(1) .lTblHalf:last-child .lTblCell:last-child')
+            ?.textContent?.trim() || ''
+        const manufacturer =
+          document
+            .querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(2) .lTblHalf:first-child .lTblCell:last-child')
+            ?.textContent?.trim() || ''
+        const packageSize =
+          document
+            .querySelector('#lInfoViewItemInfoWrap .lTblRow:nth-child(2) .lTblHalf:last-child .lTblCell:last-child')
+            ?.textContent?.trim() || ''
         const certification = document.querySelector('#lSafetyCert .lExemContent')?.textContent?.trim() || ''
 
         // 상세 설명 이미지와 내용
-        const detailImages = Array.from(document.querySelectorAll('#lInfoViewItemContents img')).map(img => (img as HTMLImageElement).src)
+        const detailImages = Array.from(document.querySelectorAll('#lInfoViewItemContents img')).map(
+          img => (img as HTMLImageElement).src,
+        )
         const detailContent = document.querySelector('#lInfoViewItemContents')?.innerHTML?.trim() || ''
 
         // 상세설명 이미지 사용 허용 여부
-        const imageUsageAllowed = document.querySelector('.lInfoViewImgUse div:first-child b')?.textContent?.trim() || ''
+        const imageUsageAllowed =
+          document.querySelector('.lInfoViewImgUse div:first-child b')?.textContent?.trim() || ''
 
         return {
           title,
@@ -205,7 +252,7 @@ export class DomeggookCrawler {
           thumbnailUrl,
           category: categoryPath,
           condition,
-          shipping,
+          shipping: shippingInfo,
           origin,
           modelName,
           manufacturer,
@@ -213,7 +260,7 @@ export class DomeggookCrawler {
           certification,
           detailImages,
           detailContent,
-          imageUsageAllowed
+          imageUsageAllowed,
         }
       })
 
@@ -236,7 +283,7 @@ export class DomeggookCrawler {
         url,
         screenshotPath,
         thumbnailPath,
-        detailImagePaths
+        detailImagePaths,
       }
     } finally {
       await page.close()
@@ -282,30 +329,90 @@ export class DomeggookCrawler {
       }
     }
 
-    // 결과를 Excel로 저장
-    const outputWorkbook = XLSX.utils.book_new()
-    const outputWorksheet = XLSX.utils.json_to_sheet(results.map(result => ({
-      '상품명': result.title,
-      '가격': result.price,
-      '썸네일': result.thumbnailPath,
-      '카테고리': result.category,
-      '상태': result.condition,
-      '배송': result.shipping,
-      '원산지': result.origin,
-      '모델명': result.modelName,
-      '제조사': result.manufacturer,
-      '포장부피/무게': result.packageSize,
-      '인증정보': result.certification,
-      '상세이미지': result.detailImagePaths.join('\n'),
-      '상세설명': result.detailContent,
-      '이미지사용허용': result.imageUsageAllowed,
-      '스크린샷경로': result.screenshotPath,
-      '원본URL': result.url
-    })))
+    // 1. 원본 데이터 엑셀 저장 (origin.xlsx)
+    const originWorkbook = XLSX.utils.book_new()
+    const originWorksheet = XLSX.utils.json_to_sheet(
+      results.map(result => ({
+        상품명: result.title,
+        가격: result.price,
+        썸네일: result.thumbnailPath,
+        카테고리: result.category,
+        상태: result.condition,
+        배송방법: result.shipping.method,
+        발송기간: result.shipping.period,
+        기본배송비: result.shipping.base,
+        제주추가배송비: result.shipping.jeju,
+        도서산간추가배송비: result.shipping.island,
+        묶음배송: result.shipping.bundle,
+        원산지: result.origin,
+        모델명: result.modelName,
+        제조사: result.manufacturer,
+        '포장부피/무게': result.packageSize,
+        인증정보: result.certification,
+        상세이미지: result.detailImagePaths.join('\n'),
+        상세설명: result.detailContent,
+        이미지사용허용: result.imageUsageAllowed,
+        스크린샷경로: result.screenshotPath,
+        원본URL: result.url,
+      })),
+    )
+    XLSX.utils.book_append_sheet(originWorkbook, originWorksheet, '원본데이터')
+    XLSX.writeFile(originWorkbook, path.join(resultDir, 'origin.xlsx'))
 
-    XLSX.utils.book_append_sheet(outputWorkbook, outputWorksheet, '크롤링결과')
-    const outputPath = path.join(resultDir, '크롤링결과.xlsx')
-    XLSX.writeFile(outputWorkbook, outputPath)
+    // 2. S2B 업로드용 엑셀 저장 (s2b.xlsx)
+    const s2bWorkbook = XLSX.utils.book_new()
+    const s2bWorksheet = XLSX.utils.json_to_sheet(
+      results.map(result => {
+        // 원산지 파싱 로직
+        let originType = ''
+        let originDomestic = ''
+        let originForeign = ''
+        if (result.origin?.includes('국내')) {
+          originType = '국내'
+          originDomestic = result.origin
+          originForeign = ''
+        } else {
+          originType = '국외'
+          originDomestic = ''
+          originForeign = result.origin
+        }
+
+        return {
+          카테고리1: '',
+          카테고리2: '',
+          카테고리3: '',
+          등록구분: '물품',
+          물품명: result.title,
+          규격: '',
+          모델명: result.modelName ?? '해당없음',
+          제시금액: result.price,
+          제조사: result.manufacturer,
+          '소재/재질': '',
+          재고수량: 9999,
+          판매단위: '개',
+          보증기간: '1년',
+          납품가능기간: '7일',
+          '견적서 유효기간': '',
+          배송비종류: '무료', // 배송비 무료
+          배송비: '', // 빈 값
+          반품배송비: 3500,
+          묶음배송여부: 'Y',
+          제주배송여부: 'Y',
+          제주추가배송비: 5000,
+          상세설명HTML: result.detailContent,
+          기본이미지1: result.thumbnailPath, // 썸네일 로컬 경로
+          기본이미지2: '',
+          추가이미지1: '',
+          추가이미지2: '',
+          상세이미지: result.detailImagePaths.join('\n'), // 상세 이미지 로컬 경로
+          원산지구분: originType,
+          국내원산지: originDomestic,
+          해외원산지: originForeign,
+        }
+      }),
+    )
+    XLSX.utils.book_append_sheet(s2bWorkbook, s2bWorksheet, 'S2B업로드')
+    XLSX.writeFile(s2bWorkbook, path.join(resultDir, 's2b.xlsx'))
   }
 
   async close() {

@@ -26,12 +26,7 @@ const Crawler: React.FC = () => {
       title="도매꾹 크롤링"
       extra={
         <Space>
-          <Button
-            type="primary"
-            icon={<CloudDownloadOutlined />}
-            onClick={handleStartCrawling}
-            loading={loading}
-          >
+          <Button type="primary" icon={<CloudDownloadOutlined />} onClick={handleStartCrawling} loading={loading}>
             크롤링 시작
           </Button>
         </Space>
@@ -42,4 +37,4 @@ const Crawler: React.FC = () => {
   )
 }
 
-export default Crawler 
+export default Crawler
