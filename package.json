@@ -52,7 +52,7 @@
     "build:renderer": "cross-env NODE_ENV=production webpack --config webpack.config.js --mode production",
     "package": "yarn build && electron-builder",
     "package-mac": "yarn build && electron-builder --mac",
-    "package-win": "yarn build && electron-builder --win --publish never"
+    "package-win": "yarn build && electron-builder --win"
   },
   "dependencies": {
     "antd": "^5.22.2",
