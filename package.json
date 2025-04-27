@@ -1,0 +1,96 @@
+{
+  "name": "s2b-uploader",
+  "version": "1.4.0",
+  "description": "",
+  "main": "dist/electron/main.js",
+  "build": {
+    "appId": "s2b-uploader",
+    "publish": null,
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "your.app.category.type"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "asar": true,
+    "asarUnpack": [
+      "files/**/*"
+    ],
+    "files": [
+      "build/**/*",
+      "dist/electron/**/*",
+      "dist/renderer/**/*",
+      "package.json",
+      "!**/*.map"
+    ]
+  },
+  "scripts": {
+    "lint": "eslint \"{src,test}/**/*.{ts,tsx}\" --fix",
+    "start": "concurrently \"yarn start:renderer\" \"wait-on tcp:8080 && yarn start:main\"",
+    "start:main": "tsc -p tsconfig.electron.json && electron .",
+    "start:renderer": "cross-env NODE_ENV=development webpack serve --config webpack.config.js",
+    "debug": "rimraf dist/* && concurrently \"yarn debug:renderer\" \"wait-on tcp:8080 && yarn debug:main\"",
+    "debug:renderer": "cross-env ELECTRON_DEBUG=true NODE_ENV=development node --inspect=9229 ./node_modules/webpack/bin/webpack.js serve --config webpack.config.js",
+    "debug:main": "tsc -p tsconfig.electron.json && cross-env ELECTRON_DEBUG=true electron --inspect=9228 .",
+    "clean": "rimraf dist/*",
+    "build": "yarn clean && yarn build:main && yarn build:renderer",
+    "build:main": "tsc -p tsconfig.electron.prod.json",
+    "build:renderer": "cross-env NODE_ENV=production webpack --config webpack.config.js --mode production",
+    "package": "yarn build && electron-builder",
+    "package-mac": "yarn build && electron-builder --mac",
+    "package-win": "yarn build && electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "antd": "^5.22.2",
+    "dayjs": "^1.11.13",
+    "electron-store": "^8.1.0",
+    "puppeteer-core": "^23.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.2.0",
+    "@electron-forge/maker-deb": "^7.2.0",
+    "@electron-forge/maker-rpm": "^7.2.0",
+    "@electron-forge/maker-squirrel": "^7.2.0",
+    "@electron-forge/maker-zip": "^7.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^6.3.0",
+    "@typescript-eslint/parser": "^6.3.0",
+    "concurrently": "^9.1.0",
+    "copy-webpack-plugin": "^12.0.2",
+    "cross-env": "^7.0.3",
+    "css-loader": "^7.1.2",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-devtools-installer": "^3.2.0",
+    "eslint": "^8.47.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-unused-imports": "^3.0.0",
+    "prettier": "^3.0.1",
+    "ts-loader": "^9.4.4",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "5.3.2",
+    "html-webpack-plugin": "^5.6.3",
+    "style-loader": "^4.0.0",
+    "wait-on": "^8.0.1",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "yarn": ">=1.22.0"
+  }
+}

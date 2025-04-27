@@ -1,0 +1,53 @@
+name: Build and Release S2B Uploader Electron App
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 1. 리포지토리 클론
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Node.js 환경 설정
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # 3. 캐시 활성화
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      # 4. Yarn 설정 및 의존성 설치
+      - name: Install dependencies
+        run: |
+          yarn config set registry https://registry.npmjs.org
+          yarn config set network-timeout 600000
+          yarn install
+
+      # 5. GH_TOKEN 설정
+      - name: Set GitHub Token
+        run: echo "GH_TOKEN=${{ secrets.GH_TOKEN }}" >> $GITHUB_ENV
+
+      # 6. Electron 빌드 (package-win 스크립트 실행)
+      - name: Build Windows App
+        run: |
+          yarn package-win
+
+      # 7. 빌드된 파일 업로드
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: s2b-uploader
+          path: dist/

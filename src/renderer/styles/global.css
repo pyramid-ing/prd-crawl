@@ -1,0 +1,16 @@
+.ant-layout {
+    min-height: 100vh;
+}
+
+.ant-layout-sider-children {
+    display: flex;
+    flex-direction: column;
+}
+
+.ant-menu {
+    flex: 1;
+}
+
+.site-layout-background {
+    background: #fff;
+}
