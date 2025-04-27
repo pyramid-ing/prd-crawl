@@ -37,13 +37,13 @@ const TerminalLog: React.FC = () => {
   return (
     <Card
       title="로그"
-      style={{
+        style={{
         height: '400px',
         overflow: 'auto',
-        backgroundColor: '#000',
-        color: '#fff',
-      }}
-    >
+          backgroundColor: '#000',
+          color: '#fff',
+        }}
+      >
       <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
         {logs.map((log, index) => (
           <div key={index} style={getLogStyle(log.level)}>
