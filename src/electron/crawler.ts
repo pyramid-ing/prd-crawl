@@ -8,7 +8,6 @@ interface CrawlResult {
   title: string
   price: number
   description: string
-  images: string[]
   category: string
   condition: string
   shipping: string
@@ -21,6 +20,8 @@ interface CrawlResult {
   detailImages: string[]
   detailContent: string
   screenshotPath: string
+  thumbnailUrl: string
+  imageUsageAllowed: string
 }
 
 // Store 타입 정의
@@ -131,14 +132,21 @@ export class DomeggookCrawler {
         const priceText = document.querySelector('.lGGookDealAmt b')?.textContent?.trim() || '0'
         const price = parseInt(priceText.replace(/[^0-9]/g, ''))
         
+        // 썸네일 이미지 URL 추출
+        const thumbnailImg = document.querySelector('#lThumbImg') as HTMLImageElement
+        const thumbnailUrl = thumbnailImg?.src || ''
+        
         // 상품 설명
         const description = document.querySelector('#lInfoBody')?.textContent?.trim() || ''
         
-        // 이미지 URL들
-        const images = Array.from(document.querySelectorAll('#lInfoBody img')).map(img => (img as HTMLImageElement).src)
-        
-        // 카테고리 (원산지 정보로 대체)
-        const category = document.querySelector('.lInfoItemCountryContent')?.textContent?.trim() || ''
+        // 카테고리 경로 추출
+        const categoryPath = Array.from(document.querySelectorAll('#lPath ol.main > li'))
+          .map(li => {
+            const link = li.querySelector('a')
+            return link ? link.textContent?.trim() : li.textContent?.trim()
+          })
+          .filter(text => text && text !== '도매꾹홈')
+          .join(' > ')
         
         // 상품 상태 (재고수량으로 대체)
         const condition = document.querySelector('.lInfoQty .lInfoItemContent')?.textContent?.trim() || ''
@@ -157,12 +165,15 @@ export class DomeggookCrawler {
         const detailImages = Array.from(document.querySelectorAll('#lInfoViewItemContents img')).map(img => (img as HTMLImageElement).src)
         const detailContent = document.querySelector('#lInfoViewItemContents')?.innerHTML?.trim() || ''
 
+        // 상세설명 이미지 사용 허용 여부
+        const imageUsageAllowed = document.querySelector('.lInfoViewImgUse div:first-child b')?.textContent?.trim() || ''
+
         return {
           title,
           price,
           description,
-          images,
-          category,
+          thumbnailUrl,
+          category: categoryPath,
           condition,
           shipping,
           origin,
@@ -171,7 +182,8 @@ export class DomeggookCrawler {
           packageSize,
           certification,
           detailImages,
-          detailContent
+          detailContent,
+          imageUsageAllowed
         }
       })
 
@@ -215,8 +227,7 @@ export class DomeggookCrawler {
     const outputWorksheet = XLSX.utils.json_to_sheet(results.map(result => ({
       '상품명': result.title,
       '가격': result.price,
-      '설명': result.description,
-      '이미지': result.images.join('\n'),
+      '썸네일': result.thumbnailUrl,
       '카테고리': result.category,
       '상태': result.condition,
       '배송': result.shipping,
@@ -227,6 +238,7 @@ export class DomeggookCrawler {
       '인증정보': result.certification,
       '상세이미지': result.detailImages.join('\n'),
       '상세설명': result.detailContent,
+      '이미지사용허용': result.imageUsageAllowed,
       '스크린샷경로': result.screenshotPath,
       '원본URL': result.url
     })))
