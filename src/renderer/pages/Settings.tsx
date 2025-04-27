@@ -7,6 +7,7 @@ const { ipcRenderer } = window.require('electron')
 interface SettingsForm {
   crawlExcelPath: string // 크롤링용 엑셀 파일 경로
   headless: boolean // 헤드리스 모드 여부
+  saveFolderPath: string // 저장 폴더 경로
 }
 
 const Settings: React.FC = () => {
@@ -49,6 +50,20 @@ const Settings: React.FC = () => {
     }
   }
 
+  const handleSelectSaveFolder = async () => {
+    try {
+      let path = await ipcRenderer.invoke('select-directory')
+      if (path) {
+        path = decodeURIComponent(encodeURIComponent(path)) // 한글 인코딩 문제 해결
+        form.setFieldValue('saveFolderPath', path)
+        console.log('Selected Save Folder:', path)
+      }
+    } catch (error) {
+      console.error('Failed to select Save Folder:', error)
+      message.error('저장 폴더 선택에 실패했습니다.')
+    }
+  }
+
   const handleSubmit = async (values: SettingsForm) => {
     try {
       setLoading(true)
@@ -87,6 +102,21 @@ const Settings: React.FC = () => {
             readOnly
             addonAfter={
               <Button type="text" icon={<FolderOutlined />} onClick={handleSelectCrawlExcel} disabled={loading}>
+                선택
+              </Button>
+            }
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="저장 폴더 경로"
+          name="saveFolderPath"
+          rules={[{ required: true, message: '저장 폴더를 선택해주세요' }]}
+        >
+          <Input
+            readOnly
+            addonAfter={
+              <Button type="text" icon={<FolderOutlined />} onClick={handleSelectSaveFolder} disabled={loading}>
                 선택
               </Button>
             }

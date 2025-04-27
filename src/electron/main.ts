@@ -4,10 +4,11 @@ import Store from 'electron-store'
 import { DomeggookCrawler } from './crawler'
 import dayjs from 'dayjs'
 
-interface StoreSchema {
+export interface StoreSchema {
   settings: {
     crawlExcelPath: string
     headless: boolean
+    saveFolderPath: string
   }
 }
 
@@ -17,6 +18,7 @@ const store = new Store<StoreSchema>({
     settings: {
       crawlExcelPath: '',
       headless: false,
+      saveFolderPath: '',
     },
   },
   encryptionKey: 's2b-uploader-secret-key',
@@ -75,6 +77,14 @@ function setupIpcHandlers() {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [{ name: 'Excel Files', extensions: ['xlsx', 'xls'] }],
+    })
+    return result.filePaths[0]
+  })
+
+  // 디렉토리 선택
+  ipcMain.handle('select-directory', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
     })
     return result.filePaths[0]
   })

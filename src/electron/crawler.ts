@@ -3,6 +3,10 @@ import * as XLSX from 'xlsx'
 import Store from 'electron-store'
 import path from 'path'
 import * as fs from 'fs'
+import crypto from 'crypto'
+import axios from 'axios'
+import {StoreSchema} from './main'
+import dayjs from 'dayjs'
 
 interface CrawlResult {
   title: string
@@ -22,15 +26,10 @@ interface CrawlResult {
   screenshotPath: string
   thumbnailUrl: string
   imageUsageAllowed: string
+  thumbnailPath: string
+  detailImagePaths: string[]
 }
 
-// Store 타입 정의
-interface StoreSchema {
-  settings: {
-    crawlExcelPath: string
-    headless: boolean
-  }
-}
 
 export class DomeggookCrawler {
   private browser: puppeteer.Browser | null = null
@@ -95,7 +94,37 @@ export class DomeggookCrawler {
     })
   }
 
-  async crawlProduct(url: string): Promise<CrawlResult> {
+  // 이미지 다운로드 함수
+  private async downloadImage(url: string, savePath: string): Promise<void> {
+    try {
+      const response = await axios({
+        method: 'GET',
+        url: url,
+        responseType: 'stream'
+      })
+
+      const writer = fs.createWriteStream(savePath)
+      response.data.pipe(writer)
+
+      return new Promise((resolve, reject) => {
+        writer.on('finish', resolve)
+        writer.on('error', (err) => {
+          fs.unlink(savePath, () => reject(err))
+        })
+      })
+    } catch (error) {
+      throw new Error(`이미지 다운로드 실패: ${error.message}`)
+    }
+  }
+
+  // URL에서 파일명 생성
+  private getFileNameFromUrl(url: string): string {
+    const hash = crypto.createHash('md5').update(url).digest('hex')
+    const ext = path.extname(url) || '.jpg'
+    return `${hash}${ext}`
+  }
+
+  async crawlProduct(url: string, resultDir: string): Promise<CrawlResult> {
     if (!this.browser) {
       throw new Error('브라우저가 초기화되지 않았습니다.')
     }
@@ -103,42 +132,43 @@ export class DomeggookCrawler {
     const page = await this.browser.newPage()
     try {
       await page.goto(url, { waitUntil: 'networkidle0' })
-      
+
       // 상품명을 파일명으로 사용하기 위해 먼저 추출
       const title = await page.$eval('#lInfoItemTitle', el => el.textContent?.trim() || '')
-      const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_') // 파일명에 사용할 수 없는 문자 제거
-      
-      // 스크린샷 저장 경로 설정
-      const screenshotDir = path.join(process.cwd(), 'screenshots')
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true })
-      }
-      const screenshotPath = path.join(screenshotDir, `${safeTitle}.png`)
+      const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_')
 
-      // 상세 설명 부분만 캡쳐
+      // 이미지 저장 디렉토리 설정
+      const imagesDir = path.join(resultDir, 'images')
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true })
+      }
+
+      // 스크린샷 저장
+      const screenshotPath = path.join(imagesDir, `${safeTitle}_detail.jpg`)
       const element = await page.$('#lInfoViewItemContents')
       if (element) {
         await element.screenshot({
           path: screenshotPath,
-          type: 'png'
+          type: 'jpeg',
+          quality: 80
         })
       }
 
       const result = await page.evaluate(() => {
         // 상품명
         const title = document.querySelector('#lInfoItemTitle')?.textContent?.trim() || ''
-        
+
         // 가격 (숫자만 추출)
         const priceText = document.querySelector('.lGGookDealAmt b')?.textContent?.trim() || '0'
         const price = parseInt(priceText.replace(/[^0-9]/g, ''))
-        
+
         // 썸네일 이미지 URL 추출
         const thumbnailImg = document.querySelector('#lThumbImg') as HTMLImageElement
         const thumbnailUrl = thumbnailImg?.src || ''
-        
+
         // 상품 설명
         const description = document.querySelector('#lInfoBody')?.textContent?.trim() || ''
-        
+
         // 카테고리 경로 추출
         const categoryPath = Array.from(document.querySelectorAll('#lPath ol.main > li'))
           .map(li => {
@@ -147,10 +177,10 @@ export class DomeggookCrawler {
           })
           .filter(text => text && text !== '도매꾹홈')
           .join(' > ')
-        
+
         // 상품 상태 (재고수량으로 대체)
         const condition = document.querySelector('.lInfoQty .lInfoItemContent')?.textContent?.trim() || ''
-        
+
         // 배송 정보
         const shipping = document.querySelector('.lDeliMethod')?.textContent?.trim() || ''
 
@@ -187,10 +217,26 @@ export class DomeggookCrawler {
         }
       })
 
+      // 썸네일 다운로드
+      const thumbnailFileName = this.getFileNameFromUrl(result.thumbnailUrl)
+      const thumbnailPath = path.join(imagesDir, thumbnailFileName)
+      await this.downloadImage(result.thumbnailUrl, thumbnailPath)
+
+      // 상세 이미지 다운로드
+      const detailImagePaths: string[] = []
+      for (const imageUrl of result.detailImages) {
+        const fileName = this.getFileNameFromUrl(imageUrl)
+        const imagePath = path.join(imagesDir, fileName)
+        await this.downloadImage(imageUrl, imagePath)
+        detailImagePaths.push(imagePath)
+      }
+
       return {
         ...result,
         url,
-        screenshotPath
+        screenshotPath,
+        thumbnailPath,
+        detailImagePaths
       }
     } finally {
       await page.close()
@@ -203,19 +249,33 @@ export class DomeggookCrawler {
       throw new Error('크롤링용 Excel 파일 경로가 설정되지 않았습니다.')
     }
 
+    const saveFolderPath = this.store.get('settings.saveFolderPath') as string
+    if (!saveFolderPath) {
+      throw new Error('결과 저장 폴더 경로가 설정되지 않았습니다.')
+    }
+
     const workbook = XLSX.readFile(excelPath)
     const worksheet = workbook.Sheets[workbook.SheetNames[0]]
     const data = XLSX.utils.sheet_to_json(worksheet)
+
+    // 결과 폴더 생성 (설정된 폴더 내에 생성)
+    const timestamp = dayjs().format('YYYYMMDD_HHmmss')
+    const resultDir = path.join(saveFolderPath, `크롤링결과_${timestamp}`)
+    if (!fs.existsSync(resultDir)) {
+      fs.mkdirSync(resultDir, { recursive: true })
+    }
+
+    // 마지막 결과 폴더 경로 저장
+    this.store.set('settings.lastResultPath', resultDir)
 
     const results: CrawlResult[] = []
     for (const row of data) {
       const url = (row as any).url
       if (url) {
         try {
-          const result = await this.crawlProduct(url)
+          const result = await this.crawlProduct(url, resultDir)
           results.push(result)
-          // 크롤링 딜레이 적용
-          await new Promise(resolve => setTimeout(resolve, 1000)) // 1초 딜레이
+          await new Promise(resolve => setTimeout(resolve, 1000))
         } catch (error) {
           console.error(`URL 크롤링 실패: ${url}`, error)
         }
@@ -227,7 +287,7 @@ export class DomeggookCrawler {
     const outputWorksheet = XLSX.utils.json_to_sheet(results.map(result => ({
       '상품명': result.title,
       '가격': result.price,
-      '썸네일': result.thumbnailUrl,
+      '썸네일': result.thumbnailPath,
       '카테고리': result.category,
       '상태': result.condition,
       '배송': result.shipping,
@@ -236,7 +296,7 @@ export class DomeggookCrawler {
       '제조사': result.manufacturer,
       '포장부피/무게': result.packageSize,
       '인증정보': result.certification,
-      '상세이미지': result.detailImages.join('\n'),
+      '상세이미지': result.detailImagePaths.join('\n'),
       '상세설명': result.detailContent,
       '이미지사용허용': result.imageUsageAllowed,
       '스크린샷경로': result.screenshotPath,
@@ -244,26 +304,8 @@ export class DomeggookCrawler {
     })))
 
     XLSX.utils.book_append_sheet(outputWorkbook, outputWorksheet, '크롤링결과')
-
-    // 결과 폴더 생성
-    const resultDir = path.join(path.dirname(excelPath), `크롤링결과_${new Date().toISOString().split('T')[0]}`)
-    if (!fs.existsSync(resultDir)) {
-      fs.mkdirSync(resultDir, { recursive: true })
-    }
-
-    // Excel 파일 저장
     const outputPath = path.join(resultDir, '크롤링결과.xlsx')
     XLSX.writeFile(outputWorkbook, outputPath)
-
-    // 스크린샷 폴더를 결과 폴더로 이동
-    const screenshotsDir = path.join(process.cwd(), 'screenshots')
-    const targetScreenshotsDir = path.join(resultDir, 'screenshots')
-    if (fs.existsSync(screenshotsDir)) {
-      if (fs.existsSync(targetScreenshotsDir)) {
-        fs.rmSync(targetScreenshotsDir, { recursive: true, force: true })
-      }
-      fs.renameSync(screenshotsDir, targetScreenshotsDir)
-    }
   }
 
   async close() {
