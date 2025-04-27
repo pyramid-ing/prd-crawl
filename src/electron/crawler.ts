@@ -20,6 +20,7 @@ interface CrawlResult {
   certification: string
   detailImages: string[]
   detailContent: string
+  screenshotPath: string
 }
 
 // Store 타입 정의
@@ -101,6 +102,26 @@ export class DomeggookCrawler {
     const page = await this.browser.newPage()
     try {
       await page.goto(url, { waitUntil: 'networkidle0' })
+      
+      // 상품명을 파일명으로 사용하기 위해 먼저 추출
+      const title = await page.$eval('#lInfoItemTitle', el => el.textContent?.trim() || '')
+      const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_') // 파일명에 사용할 수 없는 문자 제거
+      
+      // 스크린샷 저장 경로 설정
+      const screenshotDir = path.join(process.cwd(), 'screenshots')
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true })
+      }
+      const screenshotPath = path.join(screenshotDir, `${safeTitle}.png`)
+
+      // 상세 설명 부분만 캡쳐
+      const element = await page.$('#lInfoViewItemContents')
+      if (element) {
+        await element.screenshot({
+          path: screenshotPath,
+          type: 'png'
+        })
+      }
 
       const result = await page.evaluate(() => {
         // 상품명
@@ -156,7 +177,8 @@ export class DomeggookCrawler {
 
       return {
         ...result,
-        url
+        url,
+        screenshotPath
       }
     } finally {
       await page.close()
@@ -205,16 +227,31 @@ export class DomeggookCrawler {
       '인증정보': result.certification,
       '상세이미지': result.detailImages.join('\n'),
       '상세설명': result.detailContent,
+      '스크린샷경로': result.screenshotPath,
       '원본URL': result.url
     })))
 
     XLSX.utils.book_append_sheet(outputWorkbook, outputWorksheet, '크롤링결과')
 
-    const outputPath = path.join(
-      path.dirname(excelPath),
-      `크롤링결과_${new Date().toISOString().split('T')[0]}.xlsx`
-    )
+    // 결과 폴더 생성
+    const resultDir = path.join(path.dirname(excelPath), `크롤링결과_${new Date().toISOString().split('T')[0]}`)
+    if (!fs.existsSync(resultDir)) {
+      fs.mkdirSync(resultDir, { recursive: true })
+    }
+
+    // Excel 파일 저장
+    const outputPath = path.join(resultDir, '크롤링결과.xlsx')
     XLSX.writeFile(outputWorkbook, outputPath)
+
+    // 스크린샷 폴더를 결과 폴더로 이동
+    const screenshotsDir = path.join(process.cwd(), 'screenshots')
+    const targetScreenshotsDir = path.join(resultDir, 'screenshots')
+    if (fs.existsSync(screenshotsDir)) {
+      if (fs.existsSync(targetScreenshotsDir)) {
+        fs.rmSync(targetScreenshotsDir, { recursive: true, force: true })
+      }
+      fs.renameSync(screenshotsDir, targetScreenshotsDir)
+    }
   }
 
   async close() {
