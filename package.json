@@ -1,6 +1,6 @@
 {
   "name": "prd-crawler",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "description": "",
   "main": "dist/electron/main.js",
   "build": {
@@ -58,6 +58,7 @@
     "antd": "^5.22.2",
     "axios": "^1.9.0",
     "dayjs": "^1.11.13",
+    "electron-log": "^5.3.4",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.6.2",
     "puppeteer-core": "^23.7.1",

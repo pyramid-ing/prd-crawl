@@ -4,6 +4,7 @@ import Store from 'electron-store'
 import { DomeggookCrawler } from './crawler'
 import dayjs from 'dayjs'
 import { autoUpdater } from 'electron-updater'
+import log from 'electron-log'
 
 export interface StoreSchema {
   settings: {
@@ -63,13 +64,22 @@ function createWindow() {
 function setAutoUpdater(win: BrowserWindow) {
   autoUpdater.autoDownload = true;
 
+  autoUpdater.on('checking-for-update', () => {
+    log.info('업데이트 확인 중...');
+  });
   autoUpdater.on('update-available', () => {
+    log.info('업데이트 가능');
     win.webContents.send('update_available');
   });
-
+  autoUpdater.on('update-not-available', () => {
+    log.info('업데이트 없음');
+  });
+  autoUpdater.on('download-progress', (progressObj) => {
+    log.info('다운로드 진행 중:', progressObj);
+  });
   autoUpdater.on('update-downloaded', () => {
+    log.info('업데이트 다운로드 완료');
     win.webContents.send('update_downloaded');
-    // 다운로드 완료 후 사용자에게 알림 및 재시작
     dialog.showMessageBox(win, {
       type: 'info',
       title: '업데이트 완료',
@@ -77,16 +87,16 @@ function setAutoUpdater(win: BrowserWindow) {
       buttons: ['지금 재시작', '나중에']
     }).then(result => {
       if (result.response === 0) {
+        log.info('quitAndInstall 호출!');
         autoUpdater.quitAndInstall();
       }
     });
   });
-
   autoUpdater.on('error', (err) => {
+    log.error('업데이트 에러:', err);
     win.webContents.send('update_error', err == null ? "unknown" : err.message);
   });
 
-  // 앱 실행 시 업데이트 확인
   autoUpdater.checkForUpdatesAndNotify();
 }
 
