@@ -9,7 +9,8 @@
       {
         "provider": "github",
         "owner": "pyramid-ing",
-        "repo": "prd-crawl"
+        "repo": "prd-crawl",
+        "releaseType": "release"
       }
     ],
     "mac": {
