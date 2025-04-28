@@ -265,17 +265,28 @@ export class DomeggookCrawler {
       })
 
       // 썸네일 다운로드
-      const thumbnailFileName = this.getFileNameFromUrl(result.thumbnailUrl)
-      const thumbnailPath = path.join(imagesDir, thumbnailFileName)
-      await this.downloadImage(result.thumbnailUrl, thumbnailPath)
+      let thumbnailPath = ''
+      try {
+        const thumbnailFileName = this.getFileNameFromUrl(result.thumbnailUrl)
+        thumbnailPath = path.join(imagesDir, thumbnailFileName)
+        await this.downloadImage(result.thumbnailUrl, thumbnailPath)
+      } catch (e) {
+        console.error(`썸네일 이미지 다운로드 실패: ${result.thumbnailUrl}`, e)
+        thumbnailPath = ''
+      }
 
       // 상세 이미지 다운로드
       const detailImagePaths: string[] = []
       for (const imageUrl of result.detailImages) {
-        const fileName = this.getFileNameFromUrl(imageUrl)
-        const imagePath = path.join(imagesDir, fileName)
-        await this.downloadImage(imageUrl, imagePath)
-        detailImagePaths.push(imagePath)
+        try {
+          const fileName = this.getFileNameFromUrl(imageUrl)
+          const imagePath = path.join(imagesDir, fileName)
+          await this.downloadImage(imageUrl, imagePath)
+          detailImagePaths.push(imagePath)
+        } catch (e) {
+          console.error(`상세 이미지 다운로드 실패: ${imageUrl}`, e)
+          // 실패한 이미지는 경로 추가하지 않음
+        }
       }
 
       return {
@@ -288,6 +299,14 @@ export class DomeggookCrawler {
     } finally {
       await page.close()
     }
+  }
+
+  // detailContent가 32767자를 초과할 경우 파일로 저장하는 함수 추가
+  private saveLongTextToFile(content: string, dir: string, title: string): string {
+    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_')
+    const filePath = path.join(dir, `${safeTitle}_detail.txt`)
+    fs.writeFileSync(filePath, content, { encoding: 'utf-8' })
+    return filePath
   }
 
   async crawlFromExcel(): Promise<void> {
@@ -332,29 +351,37 @@ export class DomeggookCrawler {
     // 1. 원본 데이터 엑셀 저장 (origin.xlsx)
     const originWorkbook = XLSX.utils.book_new()
     const originWorksheet = XLSX.utils.json_to_sheet(
-      results.map(result => ({
-        상품명: result.title,
-        가격: result.price,
-        썸네일: result.thumbnailPath,
-        카테고리: result.category,
-        상태: result.condition,
-        배송방법: result.shipping.method,
-        발송기간: result.shipping.period,
-        기본배송비: result.shipping.base,
-        제주추가배송비: result.shipping.jeju,
-        도서산간추가배송비: result.shipping.island,
-        묶음배송: result.shipping.bundle,
-        원산지: result.origin,
-        모델명: result.modelName,
-        제조사: result.manufacturer,
-        '포장부피/무게': result.packageSize,
-        인증정보: result.certification,
-        상세이미지: result.detailImagePaths.join('\n'),
-        상세설명: result.detailContent,
-        이미지사용허용: result.imageUsageAllowed,
-        스크린샷경로: result.screenshotPath,
-        원본URL: result.url,
-      })),
+      results.map(result => {
+        let detailContentValue: string
+        if (result.detailContent.length > 32767) {
+          detailContentValue = this.saveLongTextToFile(result.detailContent, resultDir, result.title)
+        } else {
+          detailContentValue = result.detailContent
+        }
+        return {
+          상품명: result.title,
+          가격: result.price,
+          썸네일: result.thumbnailPath,
+          카테고리: result.category,
+          상태: result.condition,
+          배송방법: result.shipping.method,
+          발송기간: result.shipping.period,
+          기본배송비: result.shipping.base,
+          제주추가배송비: result.shipping.jeju,
+          도서산간추가배송비: result.shipping.island,
+          묶음배송: result.shipping.bundle,
+          원산지: result.origin,
+          모델명: result.modelName,
+          제조사: result.manufacturer,
+          '포장부피/무게': result.packageSize,
+          인증정보: result.certification,
+          상세이미지: result.detailImagePaths.join('\n'),
+          상세설명: detailContentValue,
+          이미지사용허용: result.imageUsageAllowed,
+          스크린샷경로: result.screenshotPath,
+          원본URL: result.url,
+        }
+      }),
     )
     XLSX.utils.book_append_sheet(originWorkbook, originWorksheet, '원본데이터')
     XLSX.writeFile(originWorkbook, path.join(resultDir, 'origin.xlsx'))
@@ -375,6 +402,13 @@ export class DomeggookCrawler {
           originType = '국외'
           originDomestic = ''
           originForeign = result.origin
+        }
+
+        let detailContentValue: string
+        if (result.detailContent.length > 32767) {
+          detailContentValue = this.saveLongTextToFile(result.detailContent, resultDir, result.title)
+        } else {
+          detailContentValue = result.detailContent
         }
 
         return {
@@ -399,7 +433,7 @@ export class DomeggookCrawler {
           묶음배송여부: 'Y',
           제주배송여부: 'Y',
           제주추가배송비: 5000,
-          상세설명HTML: result.detailContent,
+          상세설명HTML: detailContentValue,
           기본이미지1: result.thumbnailPath, // 썸네일 로컬 경로
           기본이미지2: '',
           추가이미지1: '',
