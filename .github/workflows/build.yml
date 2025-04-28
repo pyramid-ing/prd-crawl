@@ -43,7 +43,7 @@ jobs:
       # 6. Electron 빌드 (package-win 스크립트 실행)
       - name: Build Windows App
         run: |
-          yarn package-win
+          GH_TOKEN=${{ secrets.GH_TOKEN }} yarn package-win
 
       # 7. 빌드된 파일 업로드
       - name: Upload Artifacts
