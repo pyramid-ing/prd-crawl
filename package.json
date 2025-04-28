@@ -1,6 +1,6 @@
 {
   "name": "prd-crawler",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "",
   "main": "dist/electron/main.js",
   "build": {
