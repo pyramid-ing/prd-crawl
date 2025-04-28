@@ -1,4 +1,4 @@
-name: Build and Release S2B Uploader Electron App
+name: Build and Release Electron App
 
 on:
   push:
