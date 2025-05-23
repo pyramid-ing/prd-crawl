@@ -166,7 +166,7 @@ export class DomeggookCrawler {
         const title = document.querySelector('#lInfoItemTitle')?.textContent?.trim() || ''
 
         // 가격 (숫자만 추출)
-        const priceText = document.querySelector('.lGGookDealAmt b')?.textContent?.trim() || '0'
+        const priceText = document.querySelector('.lItemPrice')?.textContent?.trim() || '0'
         const price = parseInt(priceText.replace(/[^0-9]/g, ''))
 
         // 썸네일 이미지 URL 추출
@@ -556,7 +556,7 @@ export class DomeggookCrawler {
           물품명: result.title,
           규격: '',
           모델명: result.modelName ?? '해당없음',
-          제시금액: result.price,
+          제시금액: Math.round(result.price * (1 + (Number(this.store.get('settings.profitPercent')) || 30) / 100)),
           제조사: result.manufacturer,
           '소재/재질': '설명참고',
           재고수량: 9999,
@@ -570,7 +570,7 @@ export class DomeggookCrawler {
           묶음배송여부: 'Y',
           제주배송여부: 'Y',
           제주추가배송비: 5000,
-          상세설명HTML: eval('`' + (this.store.get('settings.htmlTemplate')) + '`'),
+          상세설명HTML: eval('`' + this.store.get('settings.htmlTemplate') + '`'),
           기본이미지1: result.thumbnailPath, // 썸네일 로컬 경로
           기본이미지2: '',
           추가이미지1: '',

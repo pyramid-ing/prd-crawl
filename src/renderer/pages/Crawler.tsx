@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Card, message, Space, Input, Typography } from 'antd'
+import { Button, Card, message, Space, Input, Typography, InputNumber, Row, Col } from 'antd'
 import { CloudDownloadOutlined, SaveOutlined } from '@ant-design/icons'
 import TerminalLog from './TerminalLog'
 
@@ -35,28 +35,36 @@ const defaultHtmlTemplate = `<div style="text-align: center;">
 const Crawler: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [htmlTemplate, setHtmlTemplate] = useState(defaultHtmlTemplate)
+  const [profitPercent, setProfitPercent] = useState(30) // 기본값 30%
 
   useEffect(() => {
-    // 저장된 템플릿 불러오기
-    const loadTemplate = async () => {
+    // 저장된 설정 불러오기
+    const loadSettings = async () => {
       try {
         const settings = await ipcRenderer.invoke('get-settings')
         if (settings?.htmlTemplate) {
           setHtmlTemplate(settings.htmlTemplate)
         }
+        if (settings?.profitPercent !== undefined) {
+          setProfitPercent(settings.profitPercent)
+        }
       } catch (error) {
-        console.error('템플릿 불러오기 실패:', error)
+        console.error('설정 불러오기 실패:', error)
       }
     }
-    loadTemplate()
+    loadSettings()
   }, [])
 
   const handleStartCrawling = async () => {
     try {
       setLoading(true)
-      // 현재 템플릿 저장
+      // 현재 설정 저장
       const settings = await ipcRenderer.invoke('get-settings')
-      await ipcRenderer.invoke('save-settings', { ...settings, htmlTemplate })
+      await ipcRenderer.invoke('save-settings', {
+        ...settings,
+        htmlTemplate,
+        profitPercent,
+      })
       await ipcRenderer.invoke('start-crawling')
       message.success('크롤링이 시작되었습니다.')
     } catch (error) {
@@ -70,11 +78,15 @@ const Crawler: React.FC = () => {
   const handleSaveTemplate = async () => {
     try {
       const settings = await ipcRenderer.invoke('get-settings')
-      await ipcRenderer.invoke('save-settings', { ...settings, htmlTemplate })
-      message.success('템플릿이 저장되었습니다.')
+      await ipcRenderer.invoke('save-settings', {
+        ...settings,
+        htmlTemplate,
+        profitPercent,
+      })
+      message.success('설정이 저장되었습니다.')
     } catch (error) {
-      console.error('템플릿 저장 실패:', error)
-      message.error('템플릿 저장에 실패했습니다.')
+      console.error('설정 저장 실패:', error)
+      message.error('설정 저장에 실패했습니다.')
     }
   }
 
@@ -98,19 +110,36 @@ const Crawler: React.FC = () => {
         </Space>
       }
     >
-      <div style={{ marginBottom: 20 }}>
-        <Title level={5}>상세설명 HTML 템플릿</Title>
-        <TextArea
-          value={htmlTemplate}
-          onChange={e => setHtmlTemplate(e.target.value)}
-          placeholder="HTML 템플릿을 입력하세요"
-          autoSize={{ minRows: 10, maxRows: 20 }}
-        />
-        <div style={{ marginTop: 8, color: '#666' }}>
-          사용 가능한 변수: {'{result.title}'}, {'{result.description}'}, {'{result.modelName}'},{' '}
-          {'{result.manufacturer}'}, {'{result.origin}'}, {'{result.packageSize}'}, {'{result.detailImagePaths}'}
-        </div>
-      </div>
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Title level={5}>순익 설정</Title>
+          <Space align="center">
+            <InputNumber
+              min={0}
+              max={100}
+              value={profitPercent}
+              onChange={value => setProfitPercent(value)}
+              formatter={value => `${value}%`}
+              parser={value => Number(value!.replace('%', ''))}
+              style={{ width: 120 }}
+            />
+            <span style={{ color: '#666' }}>설정한 순익률만큼 가격이 자동으로 계산됩니다. (예: 30% = 원가 × 1.3)</span>
+          </Space>
+        </Col>
+        <Col span={24}>
+          <Title level={5}>상세설명 HTML 템플릿</Title>
+          <TextArea
+            value={htmlTemplate}
+            onChange={e => setHtmlTemplate(e.target.value)}
+            placeholder="HTML 템플릿을 입력하세요"
+            autoSize={{ minRows: 10, maxRows: 20 }}
+          />
+          <div style={{ marginTop: 8, color: '#666' }}>
+            사용 가능한 변수: {'{result.title}'}, {'{result.description}'}, {'{result.modelName}'},{' '}
+            {'{result.manufacturer}'}, {'{result.origin}'}, {'{result.packageSize}'}, {'{result.detailImagePaths}'}
+          </div>
+        </Col>
+      </Row>
       <TerminalLog />
     </Card>
   )
