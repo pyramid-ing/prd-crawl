@@ -67,7 +67,11 @@ const Settings: React.FC = () => {
   const handleSubmit = async (values: SettingsForm) => {
     try {
       setLoading(true)
-      await ipcRenderer.invoke('save-settings', values)
+      const currentSettings = await ipcRenderer.invoke('get-settings') || {}
+      await ipcRenderer.invoke('save-settings', {
+        ...currentSettings,
+        ...values,
+      })
       message.success({
         content: '설정이 저장되었습니다.',
         key: 'settings-success',
