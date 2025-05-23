@@ -62,42 +62,44 @@ function createWindow() {
 
 // 자동 업데이트 설정
 function setAutoUpdater(win: BrowserWindow) {
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = true
 
   autoUpdater.on('checking-for-update', () => {
-    log.info('업데이트 확인 중...');
-  });
+    log.info('업데이트 확인 중...')
+  })
   autoUpdater.on('update-available', () => {
-    log.info('업데이트 가능');
-    win.webContents.send('update_available');
-  });
+    log.info('업데이트 가능')
+    win.webContents.send('update_available')
+  })
   autoUpdater.on('update-not-available', () => {
-    log.info('업데이트 없음');
-  });
-  autoUpdater.on('download-progress', (progressObj) => {
-    log.info('다운로드 진행 중:', progressObj);
-  });
+    log.info('업데이트 없음')
+  })
+  autoUpdater.on('download-progress', progressObj => {
+    log.info('다운로드 진행 중:', progressObj)
+  })
   autoUpdater.on('update-downloaded', () => {
-    log.info('업데이트 다운로드 완료');
-    win.webContents.send('update_downloaded');
-    dialog.showMessageBox(win, {
-      type: 'info',
-      title: '업데이트 완료',
-      message: '새로운 버전이 다운로드되었습니다. 지금 재시작하시겠습니까?',
-      buttons: ['지금 재시작', '나중에']
-    }).then(result => {
-      if (result.response === 0) {
-        log.info('quitAndInstall 호출!');
-        autoUpdater.quitAndInstall();
-      }
-    });
-  });
-  autoUpdater.on('error', (err) => {
-    log.error('업데이트 에러:', err);
-    win.webContents.send('update_error', err == null ? "unknown" : err.message);
-  });
+    log.info('업데이트 다운로드 완료')
+    win.webContents.send('update_downloaded')
+    dialog
+      .showMessageBox(win, {
+        type: 'info',
+        title: '업데이트 완료',
+        message: '새로운 버전이 다운로드되었습니다. 지금 재시작하시겠습니까?',
+        buttons: ['지금 재시작', '나중에'],
+      })
+      .then(result => {
+        if (result.response === 0) {
+          log.info('quitAndInstall 호출!')
+          autoUpdater.quitAndInstall()
+        }
+      })
+  })
+  autoUpdater.on('error', err => {
+    log.error('업데이트 에러:', err)
+    win.webContents.send('update_error', err == null ? 'unknown' : err.message)
+  })
 
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify()
 }
 
 // IPC 핸들러 설정
