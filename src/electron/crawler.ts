@@ -579,6 +579,7 @@ export class DomeggookCrawler {
           원산지구분: originType,
           국내원산지: originDomestic,
           해외원산지: originForeign,
+          배송방법: '택배',
         }
       }),
     )
