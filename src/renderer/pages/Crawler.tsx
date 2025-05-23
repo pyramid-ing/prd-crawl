@@ -8,33 +8,9 @@ const { Title } = Typography
 
 const { ipcRenderer } = window.require('electron')
 
-const defaultHtmlTemplate = `<div style="text-align: center;">
-  <img src="http://www.domeggook.com/images/item/item_detail_top.gif" style="display: block; margin: 0 auto;">
-  <div style="margin-top: 20px;">
-    <h2 style="color: #333; font-size: 24px;">\${result.title}</h2>
-    <p style="color: #666; font-size: 16px; margin-top: 10px;">\${result.description || ''}</p>
-  </div>
-  <div style="margin-top: 30px;">
-    \${result.detailImagePaths.map(imagePath => \`<img src="\${imagePath}" style="max-width: 100%; margin-bottom: 20px; display: block;">\`).join('\\n')}
-  </div>
-  <div style="margin-top: 30px; padding: 20px; background-color: #f8f8f8; text-align: left;">
-    <h3 style="color: #333; font-size: 18px; margin-bottom: 15px;">제품 정보</h3>
-    <ul style="list-style: none; padding: 0;">
-      <li style="margin-bottom: 10px;"><strong>모델명:</strong> \${result.modelName || '해당없음'}</li>
-      <li style="margin-bottom: 10px;"><strong>제조사:</strong> \${result.manufacturer || '해당없음'}</li>
-      <li style="margin-bottom: 10px;"><strong>원산지:</strong> \${result.origin || '해당없음'}</li>
-      <li style="margin-bottom: 10px;"><strong>포장규격:</strong> \${result.packageSize || '해당없음'}</li>
-    </ul>
-  </div>
-  <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-    <p style="color: #999; font-size: 14px;">※ 본 상품은 공급사 사정에 따라 갑작스럽게 품절될 수 있습니다.</p>
-    <p style="color: #999; font-size: 14px;">※ 상품 상세 정보는 공급사의 정책에 따라 변경될 수 있습니다.</p>
-  </div>
-</div>`
-
 const Crawler: React.FC = () => {
   const [loading, setLoading] = useState(false)
-  const [htmlTemplate, setHtmlTemplate] = useState(defaultHtmlTemplate)
+  const [htmlTemplate, setHtmlTemplate] = useState('')
   const [profitPercent, setProfitPercent] = useState(30) // 기본값 30%
 
   useEffect(() => {
@@ -59,11 +35,11 @@ const Crawler: React.FC = () => {
     try {
       setLoading(true)
       // 현재 설정 저장
-      const settings = await ipcRenderer.invoke('get-settings')
-      await ipcRenderer.invoke('save-settings', {
-        ...settings,
-        htmlTemplate,
-        profitPercent,
+      const settings = await ipcRenderer.invoke('get-settings') || {}
+      await ipcRenderer.invoke('save-settings', { 
+        ...settings, 
+        htmlTemplate: htmlTemplate || settings.htmlTemplate,
+        profitPercent: profitPercent || settings.profitPercent,
       })
       await ipcRenderer.invoke('start-crawling')
       message.success('크롤링이 시작되었습니다.')
@@ -77,11 +53,11 @@ const Crawler: React.FC = () => {
 
   const handleSaveTemplate = async () => {
     try {
-      const settings = await ipcRenderer.invoke('get-settings')
-      await ipcRenderer.invoke('save-settings', {
-        ...settings,
-        htmlTemplate,
-        profitPercent,
+      const settings = await ipcRenderer.invoke('get-settings') || {}
+      await ipcRenderer.invoke('save-settings', { 
+        ...settings, 
+        htmlTemplate: htmlTemplate || settings.htmlTemplate,
+        profitPercent: profitPercent || settings.profitPercent,
       })
       message.success('설정이 저장되었습니다.')
     } catch (error) {
@@ -91,7 +67,7 @@ const Crawler: React.FC = () => {
   }
 
   const handleResetTemplate = () => {
-    setHtmlTemplate(defaultHtmlTemplate)
+    setHtmlTemplate('')
     message.success('템플릿이 초기화되었습니다.')
   }
 
