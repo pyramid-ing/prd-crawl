@@ -391,17 +391,81 @@ export class DomeggookCrawler {
     const s2bWorksheet = XLSX.utils.json_to_sheet(
       results.map(result => {
         // 원산지 파싱 로직
-        let originType = ''
-        let originDomestic = ''
-        let originForeign = ''
-        if (result.origin?.includes('국내')) {
-          originType = '국내'
-          originDomestic = result.origin
-          originForeign = ''
-        } else {
-          originType = '국외'
-          originDomestic = ''
-          originForeign = result.origin
+        const domesticRegions = [
+          '강원', '경기', '경남', '경북', '광주', '대구', '대전',
+          '부산', '서울', '세종', '울산', '인천', '전남', '전북',
+          '제주', '충남', '충북'
+        ];
+
+        const foreignCountries = [
+          '과테말라', '그리스', '나이지리아', '남아프리카공화국', '네덜란드',
+          '노르웨이', '뉴질랜드', '대만', '덴마크', '독일', '동티모르',
+          '라오스', '라트비아', '러시아', '루마니아', '리투아니아',
+          '말레이시아', '멕시코', '모로코', '모리셔스', '미국', '미얀마',
+          '방글라데시', '베트남', '벨기에', '벨라루스', '보스니아', '북한',
+          '불가리아', '브라질', '스리랑카', '스웨덴', '스위스', '스페인',
+          '슬로바키아', '슬로베니아', '싱가폴', '아르헨티나', '아일랜드',
+          '에스토니아', '영국', '오스트레일리아', '오스트리아', '온두라스',
+          '요르단', '우크라이나', '이스라엘', '이집트', '이탈리아', '인도',
+          '인도네시아', '일본', '중국', '중국OEM', '체코', '칠레', '캄보디아',
+          '캐나다', '콜롬비아', '크로아티아', '키르기스스탄', '키프로스',
+          '태국', '터키', '튀니지', '파키스탄', '포르투갈', '폴란드',
+          '프랑스', '핀란드', '필리핀', '헝가리', '홍콩'
+        ];
+
+        let originType = '';
+        let originDomestic = '';
+        let originForeign = '';
+
+        if (result.origin) {
+          const originParts = result.origin.split('_');
+
+          // "국산"인 경우
+          if (result.origin === '국산') {
+            originType = '국내';
+            originDomestic = '경기';
+            originForeign = '';
+          }
+          // "수입산"이 포함된 경우
+          else if (result.origin.includes('수입산')) {
+            originType = '국외';
+            originDomestic = '';
+            // 언더스코어로 나눈 마지막 부분을 해외원산지로 설정
+            originForeign = originParts.length > 1 ? originParts[originParts.length - 1] : result.origin;
+          }
+          // 해외 국가가 포함된 경우
+          else if (foreignCountries.some(country => result.origin.includes(country))) {
+            originType = '국외';
+            originDomestic = '';
+            originForeign = result.origin;
+          }
+          // 국내 지역이 포함된 경우
+          else if (domesticRegions.some(region => result.origin.includes(region)) ||
+                   result.origin.includes('국내')) {
+            originType = '국내';
+            originDomestic = result.origin;
+            originForeign = '';
+          }
+          // 마지막 부분이 국가명인 경우 (예: 수입산_아시아_중국)
+          else if (originParts.length > 1) {
+            const lastPart = originParts[originParts.length - 1];
+            if (foreignCountries.includes(lastPart)) {
+              originType = '국외';
+              originDomestic = '';
+              originForeign = lastPart;
+            } else {
+              // 기본값으로 국외 처리
+              originType = '국외';
+              originDomestic = '';
+              originForeign = result.origin;
+            }
+          }
+          // 그 외의 경우 기본값으로 국외 처리
+          else {
+            originType = '국외';
+            originDomestic = '';
+            originForeign = result.origin;
+          }
         }
 
         let detailContentValue: string
