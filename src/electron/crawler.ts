@@ -558,7 +558,7 @@ export class DomeggookCrawler {
           모델명: result.modelName ?? '해당없음',
           제시금액: result.price,
           제조사: result.manufacturer,
-          '소재/재질': '',
+          '소재/재질': '설명참고',
           재고수량: 9999,
           판매단위: '개',
           보증기간: '1년',
